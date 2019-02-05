@@ -1,0 +1,194 @@
+; store pre-calculated (x,y) coordinates [in enc. counts== um] for a
+; 15-degree arc with 15 projections in P-variables, starting from P4096
+; mimicking Hologic Selenia 3D DBT system acquisition geometry
+
+; x-coordinates for step'n'shoot DBT mode
+
+P(4096)=-104330  ; x0 (not a part of 15-point trajectory toggle positions)
+P(4097)= -91368
+P(4098)= -78375
+P(4099)= -65355
+P(4100)= -52311
+P(4101)= -39249
+P(4102)= -26174
+P(4103)= -13089
+P(4104)=      0
+P(4105)=  13089
+P(4106)=  26174
+P(4107)=  39249
+P(4108)=  52311
+P(4109)=  65355
+P(4110)=  78375
+P(4111)=  91368
+P(4112)= 104330  ; not a part of 15-point trajectory toggle positions
+
+; y-coordinates for step'n'shoot DBT mode
+
+P(101)=-6754            ; add -6.754 mm offset to have SID= 700 mm at zero degree angle
+
+P(4113)=-297818+P(101)  ; y0 (not a part of 15-point trajectory toggle positions)
+P(4114)=-295989+P(101)
+P(4115)=-294402+P(101)
+P(4116)=-293058+P(101)
+P(4117)=-291957+P(101)
+P(4118)=-291101+P(101)
+P(4119)=-290490+P(101)
+P(4120)=-290122+P(101)
+P(4121)=-290000+P(101)
+P(4122)=-290122+P(101)
+P(4123)=-290490+P(101)
+P(4124)=-291101+P(101)
+P(4125)=-291957+P(101)
+P(4126)=-293058+P(101)
+P(4127)=-294402+P(101)
+P(4128)=-295989+P(101)
+P(4129)=-297818+P(101)  ; not a part of 15-point trajectory toggle positions
+
+; rotary table anlgles
+
+P(4130)=-107143  ; theta0
+P(4131)= -93750
+P(4132)= -80357
+P(4133)= -66964
+P(4134)= -53571
+P(4135)= -40179
+P(4136)= -26786
+P(4137)= -13393
+P(4138)=      0
+P(4139)=  13393
+P(4140)=  26786
+P(4141)=  40179
+P(4142)=  53571
+P(4143)=  66964
+P(4144)=  80357
+P(4145)=  93750
+P(4146)= 107143
+
+; M-variables needed to convert axis/motor positions to enc. counts
+
+#define mtrAxisScaleF M191
+#define mtrHomeCapPos M173
+#define mtrPosBias    M164
+#define mtrHomeOffset I126
+#define mtrPosSF      I108
+
+&1
+close
+undefine all
+
+#1->x 
+#3->y
+#5->z
+
+#1J/
+#3J/
+#5J/
+
+I5113=10                      ; segmentation time (Turbo Clipper only)
+
+open prog 1 clear
+
+homez 1
+homez 2
+homez 3
+homez 4
+homez 5
+
+M212=0 M211=1                 ; set ENC2 compare output (M216) value to 0
+
+; move carriages to initial position (x0,y0)
+
+tm 35000                      ; move from home to the initial position in 35 sec
+ta 50                         ; 50 ms acceleration time
+ts 20                         ; 20 ms s-curve time
+
+abs
+linear
+
+P100=4096                               ; index to refer to coordinates stored in P-variables above
+x(P(P100)) y(P(P100+17)) z(P(P100+34))  ; move to the starting point (x0,y0,theta0) using linear move
+close
+
+open prog 2 clear
+
+I5=2                          ; enable bkgd PLCs
+enable plc 2                  ; start updating program
+
+; describe 15-degree arc [in step'n'shoot manner] using circular interpolation
+
+ts 25                         ; s-curve time
+ta 50                         ; acceleration time
+
+M212=0 M211=1                 ; set M216 to 0
+
+circle1                       ; move from (x0,y0) to (x1,y1) clockwise
+normal k-1                    ; our circle is defined in XY-plane
+abs(x,y)
+inc(r)
+
+P100=4096
+
+; keep track of number of toggle positions
+
+P200=0
+
+while(P100 < 4112)  ; zero degree angle 4101, full arc 4106
+   
+   if(P200=0 OR P200=15)
+      tm 2280
+   else
+      tm 460
+   endif
+   
+   P100= P100+1
+   P200= P200+1
+   x(P(P100)) y(P(P100+17)) i(-P(P100-1)) j(-990000-P(P100-1+17)) z(P(P100+34))   ; end point (x1,y1)/circle center vector components [defined from starting point(x0,y0)]
+   dwell 370
+   
+endwhile
+
+disable plc 2
+M212=0 M211=1   ; set M216 to 0
+
+;----- move x-axis table to home position
+
+I123=-12        ; homing speed/direction ('-' to move away from motor)
+I197=0          ; position capture/trigger mode
+I125=$78000     ; mtr. flag address
+I7012=11        ; capture on enc. index high AND home flag low
+I7013=0         ; capture on home flag
+I126=-224555    ; home offset: estimated as a mean between home flag
+                ; positions moving from left/right (in units 1/16 count)
+
+;----- move y-axis table to home position
+
+I323=12
+I397=0
+I325=$78010
+I7032=11
+I7033=0
+I326=247594
+
+;----- move rotary stage to home position
+
+I523=-36
+I597=0
+I525=$78100
+I7112=11
+I7113=0
+;I526=1000000   ; home post-trigger move: 25,000 cts/rev * 1:180 gear ratio / 360 deg. * 5 deg. * 16 (unit is 1/16-th count)
+I526=1140000    ; (5.7 degrees offset) turn clockwise
+
+home1 home3 home5
+M212=0 M211=1  ; insure that x-ray trigger cleared (set M216 to zero) after stages homed
+close
+
+;----- toggle TTL logic high on MO1 on J9 when motor1 desired velocity is zero and we're indeed at toggle positions
+
+open plc 2 clear
+if(M133=1 and P200!=0 and P200!=16)
+   M212=1 M211=1      ; set ENC2 compare output (M216) value to 1
+else
+   M212=0 M211=1      ; set ENC2 compare output (M216) value to 0
+endif
+close

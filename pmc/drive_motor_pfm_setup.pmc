@@ -1,0 +1,178 @@
+;----- chn.1-4 PFM clock settings accomodated for faster move velocity needed in step'n'shoot DBT acquisition mode
+
+I7003= 2282       ; PFM clock divider
+I7004= 13         ; PFM pulse width control
+I169,4,100= 2427  ; PFM max frequency 45.5 kHz
+
+;----- chn.5-8 PFM clock settings (first ACC-1P)
+
+I7103= 2282 
+I7104= 13
+I569,4,100= 2427
+
+;----- encoder conversion table chn.1-4
+
+;I8000= $C78000  ; enc.1, no extension (for ***internally-generated*** feedback)
+;I8001= $C78008  ; enc.2, no extension
+;I8002= $C78010  ; enc.3, no extension
+;I8003= $C78018  ; enc.4, no extension
+
+;I8000= $078000  ; enc.1, 1/T extension
+;I8001= $078008  ; enc.2, 1/T extension
+;I8002= $078010  ; enc.3, 1/T extension
+;I8003= $078018  ; enc.4, 1/T extension
+
+I8000= $C78000  ; enc.1, no extension
+I8001= $078008  ; enc.2, 1/T extension
+I8002= $C78010  ; enc.3, no extension
+I8003= $078018  ; enc.4, 1/T extension
+
+;----- chn.1-4 output mode
+
+I7016,4,10= 3   ; chn.1-4 output mode: A and B are DAC, C is PFM
+
+;----- chn.1-4 encoder/timer decode control
+
+;I7010,4,10= 3
+I7010= 8
+I7020= 3
+I7030= 8
+I7040= 3
+
+;----- chn.1-4 command output register
+
+I102= $078004  ; chn.1, PFM
+I202= $07800C  ; chn.2, PFM
+I302= $078014  ; chn.3, PFM
+I402= $07801C  ; chn.4, PFM
+
+;----- encoder conversion table chn.5-8
+
+I8004=$C78100
+I8005=$C78108
+I8006=$C78110
+I8007=$C78118
+
+;----- chn.5-8 output mode
+
+I7116,4,10= 3
+
+;----- chn.5-8 encoder/timer decode control
+
+I7110,4,10= 8
+
+;----- chn.5-8 command output register
+
+I502=$78104
+I602=$7810C
+I702=$78114
+I802=$7811C
+
+;----- chn.1-4 suggested M-variables, PFM command output
+
+M107->Y:$78004,8,16,S  ; chn.1, min=0, max= calculated I169
+M207->Y:$7800C,8,16,S  ; chn.2, min=0, max= calculated I269
+M307->Y:$78014,8,16,S  ; chn.3, min=0, max= calculated I369
+M407->Y:$7801C,8,16,S  ; chn.4, min=0, max= calculated I469
+
+;----- chn.5-8 suggested M-Variables, PFM command output
+
+M507->Y:$78104,8,16,S
+M607->Y:$7810C,8,16,S
+M707->Y:$78114,8,16,S
+M807->Y:$7811C,8,16,S
+
+;----- issuing open/closed-loop commands
+
+I100,4,100= 1 ; chn.1-4 active
+I500,4,100= 1 ; chn.5-8 active
+
+;----- chn.1-4 position and velocity pointers
+
+I103= $3501 I104= $3501
+I203= $3502 I204= $3502
+I303= $3503 I304= $3503
+I403= $3504 I404= $3504
+
+;----- chn.5-8 position and velocity pointers
+
+I503= $3505 I504= $3505
+I603= $3506 I604= $3506
+I703= $3507 I704= $3507
+I803= $3508 I804= $3508
+
+;----- chn.1-4 flag control
+
+;I124,4,100= $100001     ; low true amp., enable h/w over-travel limits, disable amp. fault input, chn.1-4
+;I124,4,100= $120001     ; low true amp., disable h/w over-travel limits, disable amp. fault input, chn.1-4
+
+I124= $100001
+I224= $120001
+I324= $100001
+I424= $120001
+
+;----- chn.5-8 flag control
+
+I524,4,100 = $120001
+
+;----- chn.1-4 PID gains
+
+I130,4,100= 5595   ; PID proportional gain
+I131,4,100= 0      ; PID derivative gain
+I132,4,100= 15043  ; PID velocity feedforward gain
+I133,4,100= 0      ; PID integral gain
+I134,4,100= 0      ; PID integration mode
+I135,4,100= 0      ; PID acceleration feed forward gain
+
+;----- chn.5-8 PID Gains
+
+I530,4,100= 5595
+I531,4,100= 0
+I532,4,100= 15043
+I533,4,100= 0
+I534,4,100= 0
+I535,4,100= 0
+
+;----- chn.1-4 overtravel limits & flags
+
+M114->X:$078005,14 ; AENA1 output status
+M115->X:$078000,19 ; user1 flag input status
+M120->X:$078000,16 ; home flag1 input status
+M121->X:$078000,17 ; positive limit1 flag input status
+M122->X:$078000,18 ; negative limit1 flag input status
+M214->X:$07800D,14 ; AENA2 output status
+M215->X:$078008,19 ; user2 flag input status
+M220->X:$078008,16 ; home flag2 input status
+M221->X:$078008,17 ; positive limit2 flag input status
+M222->X:$078008,18 ; negative limit2 flag input status
+M314->X:$078015,14 ; AENA3 output status
+M315->X:$078010,19 ; user3 flag input status
+M320->X:$078010,16 ; home flag3 input status
+M321->X:$078010,17 ; positive limit3 flag input status
+M322->X:$078010,18 ; negative limit3 flag input status
+M414->X:$07801D,14 ; AENA4 output status
+M415->X:$078018,19 ; user4 flag input status
+M420->X:$078018,16 ; home flag4 input status
+M421->X:$078018,17 ; positive limit4 flag input status
+M422->X:$078018,18 ; negative limit4 flag input status
+
+;----- chn.5 overtravel limits & flags
+
+M514->X:$078105,14 ; AENA5 output status
+M515->X:$078100,19 ; user5 flag input status
+M520->X:$078100,16 ; home flag5 input status
+M521->X:$078100,17 ; positive limit5 flag input status
+M522->X:$078100,18 ; negative limit5 flag input status
+
+;----- set the deadband to 1 (1/2 with Ixx65= 8) count to prevent motor dithering
+
+I0164= -16
+I0165=  8
+I0364= -16
+I0365=  8
+I0564= -16
+I0565=  8
+
+;I7018= 1          ;reverse motor direction bit
+;I0125= $078000
+;I0111= 3200       ; decrease fatal following error limit from 2000 cts to 200 cts

@@ -1,0 +1,223 @@
+; store pre-calculated (x,y) coordinates [in enc. counts== um] for a
+; 25-degree arc with 9 projections in P-variables, starting from P4096
+; mimicking G.E. Essential DBT system acquisition geometry
+
+; x-coordinates for step'n'shoot DBT mode
+
+P(4096)=-177764  ; x0 (not a part of 9-point trajectory toggle positions)
+P(4097)=-142850
+P(4098)=-107511
+P(4099)= -71852
+P(4100)= -35980
+P(4101)=      0
+P(4102)=  35980
+P(4103)=  71852
+P(4104)= 107511
+P(4105)= 142850
+P(4106)= 177764  ; not a part of 9-point trajectory toggle positions
+
+
+
+; y-coordinates for step'n'shoot DBT mode
+
+P(101)=-5808            ; add -5.808 mm offset to have SID= 660 mm at zero degree angle
+
+P(4107)=-354390+P(101)  ; y0 (not a part of 9-point trajectory toggle positions)
+P(4108)=-345645+P(101)
+P(4109)=-338815+P(101)
+P(4110)=-333923+P(101)
+P(4111)=-330981+P(101)
+P(4112)=-330000+P(101)
+P(4113)=-330981+P(101)
+P(4114)=-333923+P(101)
+P(4115)=-338815+P(101)
+P(4116)=-345645+P(101)
+P(4117)=-354390+P(101)  ; not a part of 9-point trajectory toggle positions
+
+; move from -15 deg. to -12.5 deg., first x-ray toggle position
+
+P(4118)=-195313  ; theta0
+P(4119)=-156250
+P(4120)=-117188
+P(4121)= -78125
+P(4122)= -39063
+P(4123)=      0
+P(4124)=  39063
+P(4125)=  78125
+P(4126)= 117188
+P(4127)= 156250
+P(4128)= 195313
+
+; M-variables for general purpose digital I/O on port J9 (pg.41 in H.R.M.)
+
+;M0->Y:$78400,0      ; digital out M01
+;M1->Y:$78400,1      ; digital out M02
+;M2->Y:$78400,2      ; digital out M03
+;M3->Y:$78400,3      ; digital out M04
+;M4->Y:$78400,4      ; digital out M05
+;M5->Y:$78400,5      ; digital out M06
+;M6->Y:$78400,6      ; digital out M07
+;M7->Y:$78400,7      ; digital out M08
+;M8->Y:$78400,8      ; digital inp MI1
+;M9->Y:$78400,9      ; digital inp MI2
+;M10->Y:$78400,10    ; digital inp MI3
+;M11->Y:$78400,11    ; digital inp MI4
+;M12->Y:$78400,12    ; digital inp MI5
+;M13->Y:$78400,13    ; digital inp MI6
+;M14->Y:$78400,14    ; digital inp MI7
+;M15->Y:$78400,15    ; digital inp MI8
+;M32->X:$78400,0,8   ; direction control bits 0-7  (1= output, 0= input)
+;M34->X:$78400,8,8   ; direction control bits 8-15 (1= output, 0= input)
+;M40->X:$78404,0,24  ; inversion control (0= 0V, 1= 5V)
+;M42->Y:$78404,0,24  ; J9 port data type control (1= I/O)
+
+; M-variables needed to convert axis/motor positions to enc. counts
+
+#define mtrAxisScaleF M191
+#define mtrHomeCapPos M173
+#define mtrPosBias    M164
+#define mtrHomeOffset I126
+#define mtrPosSF      I108
+
+&1
+close
+undefine all
+
+#1->x 
+#3->y
+#5->z
+
+#1J/
+#3J/
+#5J/
+
+I5113=10                       ; segmentation time (Turbo Clipper only)
+
+open prog 1 clear
+
+homez 1
+homez 2
+homez 3
+homez 4
+homez 5
+
+M212=0 M211=1      ; set ENC2 compare output (M216) value to 0
+
+; move carriages to initial position (x0,y0)
+
+tm 35000                      ; move from home to the initial position in 35 sec
+ta 100                        ; 100 ms acceleration time
+ts 20                         ; 20 ms s-curve time
+
+abs
+linear
+
+P100=4096                               ; index to refer to coordinates stored in P-variables above
+x(P(P100)) y(P(P100+11)) z(P(P100+22))  ; move to the starting point (x0,y0,theta0) using linear move
+close
+
+open prog 2 clear
+
+I5=2                          ; enable bkgd PLCs
+;enable plc 1
+enable plc 2                  ; start updating program
+
+; describe 46-degree arc [in step'n'shoot manner] using circular interpolation
+
+ts 25                         ; s-curve time
+ta 100                        ; acceleration time
+
+M212=0 M211=1                 ; set M216 to 0
+
+circle1                       ; move from (x0,y0) to (x1,y1) clockwise
+normal k-1                    ; our circle is defined in XY-plane
+abs(x,y)
+inc(r)
+
+P100=4096
+
+; keep track of number of toggle positions
+
+P200=0
+
+while(P100 < 4106)  ; zero degree angle 4101, full arc 4106
+   
+   if(P200=0 OR P200=9)
+      ;tm 2285  ; works OK for short x-ray pulses 2326  ; 2260 ms + 66 ms
+      tm 2209   ;2240   ;2232   ; modified to accomodate 160 ms x-ray pulse
+   else
+      ;tm 1510  ; +90 ms to get 1,600 ms with 205 ms dwell time for a period of 1,805 ms
+      ;tm 1410  ; +90 ms to get 1,500 ms with 305 ms dwell time for a period of 1,805 ms
+      tm 1283
+   endif
+   
+   P100= P100+1
+   P200= P200+1
+   x(P(P100)) y(P(P100+11)) i(-P(P100-1)) j(-990000-P(P100-1+11)) z(P(P100+22))   ; end point (x1,y1)/circle center vector components [defined from starting point(x0,y0)]
+   
+   ;dwell 304   ; works OK for short x-ray pulses
+   dwell 395    ; modified to accomodate 160 ms x-ray pulse 
+   
+endwhile
+
+disable plc 2
+M212=0 M211=1   ; set M216 to 0
+
+;M0= 0          ; set MO1 (machine output TTL level on port J9 pin 31) to logical low (0V)
+
+;----- move x-axis table to home position
+
+I123=-12        ; homing speed/direction ('-' to move away from motor)
+I197=0          ; position capture/trigger mode
+I125=$78000     ; mtr. flag address
+I7012=11        ; capture on enc. index high AND home flag low
+I7013=0         ; capture on home flag
+I126=-224555    ;-225664  ; home offset: estimated as a mean between home flag
+                ; positions moving from left/right (in units 1/16 count)
+
+;----- move y-axis table to home position
+
+I323=12
+I397=0
+I325=$78010
+I7032=11
+I7033=0
+I326=247594
+
+;----- move rotary stage to home position
+
+I523=-36
+I597=0
+I525=$78100
+I7112=11
+I7113=0
+;I526=1000000   ; home post-trigger move: 25,000 cts/rev * 1:180 gear ratio / 360 deg. * 5 deg. * 16 (unit is 1/16-th count)
+I526=1140000    ; (5.7 degrees offset) turn clockwise
+
+;f10000
+;x0 y0 z0
+home1 home3 home5
+M212=0 M211=1  ; insure that x-ray trigger cleared (set M216 to zero) after stages homed
+close
+
+;----- short PLC to setup digital outputs
+
+;open plc 1 clear
+;M32=$FF             ; bits 0-8 are assigned as output
+;M34=$0              ; bits 9-16 are assigned as input
+;M40=$FF00           ; define inputs and outputs
+;M42=$FFFF           ; all lines are I/O type
+;disable plc 1       ; disable plc 1 (scanning through once on power-up/reset)
+;close
+
+;----- toggle TTL logic high on MO1 on J9 when motor1 desired velocity is zero and we're indeed at toggle positions
+
+open plc 2 clear
+if(M133=1 and P200!=0 and P200!=10)
+   ;M0=1
+   M212=1 M211=1      ; set ENC2 compare output (M216) value to 1
+else
+   ;M0=0
+   M212=0 M211=1      ; set ENC2 compare output (M216) value to 0
+endif
+close
